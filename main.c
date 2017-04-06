@@ -121,7 +121,9 @@ void do_mmal()
     MMAL_CONNECTION_T *conn = NULL;
     struct cb_context ctx;
 
+    LOG("Creating camera component.");
     _check_mmal(mmal_component_create("vc.ril.camera", &cp_source));
+    LOG("Setting up camera component.");
     {
         MMAL_PORT_T *control = cp_source->control;
         _check_mmal(mmal_port_parameter_set_int32(control, MMAL_PARAMETER_CAMERA_NUM, 0));
@@ -144,29 +146,38 @@ void do_mmal()
     }
     _check_mmal(mmal_component_enable(cp_source));
 
+    LOG("Trying to create connection.");
     _check_mmal(mmal_connection_create(&conn, cp_source->output[0], cp_render->input[0], CONNECTION_FLAG));
 
     ctx.status = MMAL_SUCCESS;
     _check_vcos(vcos_semaphore_create(&ctx.sem, "example", 1));
     conn->user_data = (void*) &ctx;
     conn->callback = connection_cb;
+    LOG("Trying to enable connection.");
     _check_mmal(mmal_connection_enable(conn));
+
+    LOG("Setup done!");
 
     /* For non-tunnelling connection: */
     for (i = 0; i < 30; i ++) {
         MMAL_BUFFER_HEADER_T *buffer = NULL;
 
+        LOG("Waiting for semaphore. (If the flag is tunnelling, this program stops here forever after some trials.)");
         vcos_semaphore_wait(&ctx.sem);
+        LOG("Semaphore was taken.");
 
         _check_mmal(ctx.status);
 
         if (conn->flags & MMAL_CONNECTION_FLAG_TUNNELLING)
             continue;
 
+        LOG("Buffer stuffs.");
         while ((buffer = mmal_queue_get(conn->pool->queue)) != NULL) {
+            LOG("Got an empty buffer %p %p %d 0x%08x; sending to the output port", buffer, buffer->data, buffer->length, buffer->flags);
             _check_mmal(mmal_port_send_buffer(conn->out, buffer));
         }
         while ((buffer = mmal_queue_get(conn->queue)) != NULL) {
+            LOG("Got a queued buffer %p %p %d 0x%08x; sending to the input port", buffer, buffer->data, buffer->length, buffer->flags);
             _check_mmal(mmal_port_send_buffer(conn->in, buffer));
         }
     }
