@@ -41,7 +41,6 @@
 #define WIDTH  1024
 #define HEIGHT 768
 #define ZERO_COPY 1
-#define DEV_MEM "/dev/mem"
 
 
 struct cb_context {
